@@ -1,0 +1,65 @@
+name: 5 - Matrix & Artifacts CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    - cron: '0 0 * * 1'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: [16, 18, 20]
+        exclude:
+          - os: ubuntu-latest
+            node-version: 16
+          - os: windows-latest
+            node-version: 18
+          - os: macos-latest
+            node-version: 20
+        include:
+          - os: windows-latest
+            node-version: 22
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Build project
+      run: npm run build
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-output-${{ matrix.os }}-${{ matrix.node-version }}
+        path: dist/
+
+  conditional-job:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'main'
+    
+    steps:
+    - name: Download artifact for deployment
+      uses: actions/download-artifact@v4
+      with:
+        name: build-output-ubuntu-latest-18
+
+    - name: Simulate deployment
+      run: |
+        echo "Simulating deployment with content from Ubuntu + Node 18 build..."
+        ls -R
